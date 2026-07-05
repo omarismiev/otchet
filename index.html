@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Мансарда — отчёт смены</title>
+<style>
+  :root{
+    --bg:#14161a; --card:#1e2128; --card2:#262a33; --line:#333845;
+    --text:#e8e9ec; --muted:#9aa0ad; --accent:#d4a548; --green:#5fbf77; --red:#e06c6c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; font-size:16px; padding-bottom:110px;}
+  header{padding:18px 16px 10px; text-align:center;}
+  header h1{font-size:20px; color:var(--accent); letter-spacing:.5px;}
+  header p{color:var(--muted); font-size:13px; margin-top:2px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; margin:10px 12px; padding:14px;}
+  .card h2{font-size:15px; color:var(--accent); margin-bottom:12px; text-transform:uppercase; letter-spacing:.5px;}
+  label{display:block; font-size:13px; color:var(--muted); margin-bottom:4px;}
+  input,select,textarea{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:16px; padding:10px 12px; outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+  .row{display:flex; gap:10px; margin-bottom:10px;}
+  .row>div{flex:1;}
+  .calc{display:flex; justify-content:space-between; padding:8px 2px; font-size:15px;}
+  .calc span:last-child{font-weight:600;}
+  .calc.total{border-top:1px solid var(--line); margin-top:6px; padding-top:10px; color:var(--accent); font-size:16px;}
+  /* кальяны */
+  .hk{display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--line);}
+  .hk:last-of-type{border-bottom:none;}
+  .hk .nm{flex:1; font-size:15px;}
+  .hk .pr{width:70px;}
+  .hk .pr input{padding:8px 6px; text-align:center; font-size:14px; color:var(--muted);}
+  .stepper{display:flex; align-items:center; gap:0;}
+  .stepper button{
+    width:40px; height:40px; border:1px solid var(--line); background:var(--card2); color:var(--text);
+    font-size:22px; border-radius:10px; cursor:pointer;
+  }
+  .stepper .qty{width:44px; text-align:center; font-size:18px; font-weight:600;}
+  .stepper .qty.nonzero{color:var(--accent);}
+  /* динамические строки */
+  .drow{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; position:relative;}
+  .drow .del{position:absolute; top:6px; right:8px; background:none; border:none; color:var(--red); font-size:18px; cursor:pointer; padding:4px;}
+  .addbtn{
+    width:100%; padding:11px; background:none; border:1px dashed var(--line); border-radius:10px;
+    color:var(--accent); font-size:15px; cursor:pointer;
+  }
+  .pct-info{font-size:13px; color:var(--green); margin-top:6px;}
+  /* нижняя панель */
+  .footer{
+    position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--line);
+    padding:10px 14px; display:flex; align-items:center; gap:12px;
+  }
+  .footer .sums{flex:1; font-size:13px; color:var(--muted); line-height:1.5;}
+  .footer .sums b{color:var(--text); font-size:15px;}
+  .footer button{
+    background:var(--accent); color:#14161a; border:none; border-radius:12px;
+    padding:14px 18px; font-size:16px; font-weight:700; cursor:pointer;
+  }
+  /* результат */
+  #resultOverlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:50; overflow-y:auto; padding:16px;
+  }
+  #resultBox{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; max-width:560px; margin:20px auto;}
+  #resultBox h2{color:var(--accent); font-size:17px; margin-bottom:10px;}
+  #reportText{width:100%; height:300px; font-size:13px; font-family:ui-monospace,Menlo,monospace; white-space:pre; margin-bottom:12px;}
+  .btns{display:flex; gap:10px; flex-wrap:wrap;}
+  .btns button,.btns a{
+    flex:1; min-width:130px; text-align:center; padding:13px; border-radius:12px; font-size:15px; font-weight:600;
+    border:none; cursor:pointer; text-decoration:none;
+  }
+  #copyBtn{background:var(--card2); color:var(--text); border:1px solid var(--line);}
+  #tgBtn{background:#2AABEE; color:#fff;}
+  #closeBtn{background:none; color:var(--muted); border:1px solid var(--line);}
+  .warn{color:var(--red); font-size:13px; margin-top:8px; display:none;}
+</style>
+</head>
+<body>
+
+<div id="jsWarn" style="margin:12px; padding:16px; background:#5a2323; border:1px solid #e06c6c; border-radius:14px; font-size:16px; line-height:1.5;">
+  ⚠️ <b>Форма открыта в просмотрщике Telegram — здесь она не работает.</b><br><br>
+  Открой её в браузере:<br>
+  📱 <b>iPhone:</b> кнопка «Поделиться» (внизу) → «Открыть в Safari»<br>
+  🤖 <b>Android:</b> три точки → «Открыть в…» → Chrome<br><br>
+  После этого появятся кальяны, сотрудники и все расчёты.
+</div>
+
+<header>
+  <h1>МАНСАРДА · ОТЧЁТ СМЕНЫ</h1>
+  <p>заполни цифры — всё остальное посчитается само</p>
+</header>
+
+<!-- ======== ОБЩЕЕ ======== -->
+<div class="card">
+  <div class="row">
+    <div><label>Дата смены</label><input type="date" id="fDate"></div>
+    <div><label>ФИО админа</label><input type="text" id="fAdmin" placeholder="Имя" list="adminList">
+      <datalist id="adminList">
+        <option>Анжелика</option><option>Полина</option><option>Илья</option>
+        <option>Ростик</option><option>Никита</option><option>Юра</option><option>Александр</option>
+      </datalist>
+    </div>
+  </div>
+  <div class="row">
+    <div><label>Размен на начало смены, ₽</label><input type="number" inputmode="numeric" id="fRazmen" placeholder="0"></div>
+  </div>
+</div>
+
+<!-- ======== ВЫРУЧКА ======== -->
+<div class="card">
+  <h2>Выручка</h2>
+  <div class="row">
+    <div><label>Налом, ₽</label><input type="number" inputmode="numeric" id="fCash" placeholder="0"></div>
+    <div><label>Картой, ₽</label><input type="number" inputmode="numeric" id="fCard" placeholder="0"></div>
+  </div>
+  <div class="row">
+    <div><label>Перевод на карту, ₽</label><input type="number" inputmode="numeric" id="fTransfer" placeholder="0"></div>
+    <div><label>Бонусы, ₽</label><input type="number" inputmode="numeric" id="fBonus" placeholder="0"></div>
+  </div>
+  <div class="row">
+    <div><label>Чаевые, ₽</label><input type="number" inputmode="numeric" id="fTips" placeholder="0"></div>
+    <div><label>Общее кол-во чеков</label><input type="number" inputmode="numeric" id="fChecks" placeholder="0"></div>
+  </div>
+  <div class="calc total"><span>ИТОГО выручка</span><span id="cItogo">0 ₽</span></div>
+  <div class="calc"><span>Средний чек (без КЗ и колбасы)</span><span id="cAvg">—</span></div>
+</div>
+
+<!-- ======== КАЛЬЯНЫ ======== -->
+<div class="card">
+  <h2>Кальяны</h2>
+  <div id="hookahList"></div>
+  <div class="calc total"><span>Кол-во кальянов</span><span id="cHkCount">0</span></div>
+  <div class="calc"><span>Сумма кальянной зоны</span><span id="cKZ">0 ₽</span></div>
+  <div class="calc"><span>Пропорция КЗ / Бар</span><span id="cProp">— / —</span></div>
+</div>
+
+<!-- ======== КОЛБАСА ======== -->
+<div class="card">
+  <h2>Колбаса</h2>
+  <div class="row">
+    <div><label>Колбаса — еда, ₽</label><input type="number" inputmode="numeric" id="fKolbasaEda" placeholder="0"></div>
+    <div><label>Колбаса — кальян, ₽</label><input type="number" inputmode="numeric" id="fKolbasaKal" placeholder="0"></div>
+  </div>
+  <div class="calc"><span>Колбаса 20%</span><span id="cKolbasa20">0 ₽</span></div>
+</div>
+
+<!-- ======== СОТРУДНИКИ ======== -->
+<div class="card">
+  <h2>ЗП сотрудников</h2>
+  <div class="calc"><span>Режим дня</span><span id="cMode">—</span></div>
+  <div class="calc"><span>Кассовый бонус (админ и мастер)</span><span id="cBonus">0 ₽</span></div>
+  <div id="staffList"></div>
+  <button class="addbtn" onclick="addStaff()">+ добавить сотрудника</button>
+  <div class="calc total"><span>Выдано сегодня (ставки + такси)</span><span id="cSalary">0 ₽</span></div>
+  <div class="calc"><span>Проценты к получке (справочно)</span><span id="cPct">0 ₽</span></div>
+</div>
+
+<!-- ======== ПОСТАВКИ / ИЗДЕРЖКИ ======== -->
+<div class="card">
+  <h2>Поставки / издержки</h2>
+  <div id="supplyList"></div>
+  <button class="addbtn" onclick="addSupply()">+ добавить издержку</button>
+  <div class="calc total"><span>Итого издержки</span><span id="cSupplies">0 ₽</span></div>
+</div>
+
+<!-- ======== КОММЕНТАРИЙ ======== -->
+<div class="card">
+  <h2>Комментарии / заметки</h2>
+  <textarea id="fComment" rows="3" placeholder="Что-то важное за смену…"></textarea>
+</div>
+
+<!-- ======== ИТОГИ ======== -->
+<div class="card">
+  <h2>Итоги смены</h2>
+  <div class="calc"><span>Выручка</span><span id="rItogo">0 ₽</span></div>
+  <div class="calc"><span>− ЗП выдано</span><span id="rSalary">0 ₽</span></div>
+  <div class="calc"><span>− Издержки</span><span id="rSupplies">0 ₽</span></div>
+  <div class="calc total"><span>ИТОГ за вычетом ЗП и издержек</span><span id="rFinal">0 ₽</span></div>
+  <div class="calc"><span>Наличные в кассе на конец смены</span><span id="rCashEnd">0 ₽</span></div>
+  <div class="warn" id="warnBox"></div>
+</div>
+
+<div class="footer">
+  <div class="sums">Итого: <b id="fSumItogo">0 ₽</b><br>КЗ: <b id="fSumKZ">0 ₽</b></div>
+  <button onclick="showReport()">Сформировать отчёт</button>
+</div>
+
+<!-- ======== РЕЗУЛЬТАТ ======== -->
+<div id="resultOverlay">
+  <div id="resultBox">
+    <h2>Отчёт готов</h2>
+    <textarea id="reportText" readonly></textarea>
+    <div class="btns">
+      <button id="copyBtn" onclick="copyReport()">📋 Скопировать</button>
+      <button id="tgBtn" onclick="shareTg()">✈️ В Telegram</button>
+      <button id="closeBtn" onclick="document.getElementById('resultOverlay').style.display='none'">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* если JS работает — предупреждение о Telegram-просмотрщике прячем */
+document.getElementById('jsWarn').style.display='none';
+
+/* ================= ПОЗИЦИИ КАЛЬЯНОВ =================
+   Цены по умолчанию — из таблицы 2026. Их можно менять прямо в форме.
+   addon:true — не считается в кол-ве кальянов (добавки). */
+const POSITIONS = [
+  {id:'klassika',   name:'Классическая чаша', price:2200},
+  {id:'premium',    name:'Премиум чаша',      price:2500},
+  {id:'greypfrut',  name:'Фрукт · Грейпфрут', price:2800},
+  {id:'granat',     name:'Фрукт · Гранат',    price:3000},
+  {id:'ananas',     name:'Фрукт · Ананас',    price:3200},
+  {id:'avtorskiy',  name:'Авторский кальян',  price:2800},
+  {id:'konstruktor',name:'Конструктор',       price:3600},
+  {id:'kokteyl',    name:'Коктейль',          price:4200},
+  {id:'kokteyl_vip',name:'Коктейль премиум',  price:5900},
+  {id:'drug',       name:'Друг (для друзей Омара)', price:1650},
+  {id:'perekur',    name:'Перекур (чай+кальян)',    price:1990},
+  {id:'dobavka',    name:'Добавка',                 price:350,  addon:true},
+  {id:'staff',      name:'Стафф',                   price:1000, addon:true},
+];
+
+/* ===== УСЛОВИЯ ТРУДА (финал 02.07.2026, «Команда и ФОТ») =====
+   Ставки фиксированные — подтягиваются по роли и режиму дня, вручную не вводятся.
+   Режим «Пт/Сб премиум» = пятница или суббота И общая касса от 80 000 ₽.
+   Кассовый бонус (будни/Вс и Пт/Сб ниже 80к): касса от 70 000 → +1500 админу и
+   мастеру, далее за каждые полные +10 000 → ещё +500 каждому. */
+const PREM_FROM = 80000, BONUS_FROM = 70000, BONUS_BASE = 1500, BONUS_STEP = 500, BONUS_STEP_SIZE = 10000, TAXI = 500;
+
+/* Базовые роли. Админ всегда выполняет функцию бармена → 9% бара его по определению.
+   Появится отдельный бармен — добавим роль. */
+const ROLES = {
+  admin:  {label:'Админ-бармен',     usual:2500, prem:3000, cashBonus:true},
+  master: {label:'Кальянный мастер', usual:1500, prem:2000, cashBonus:true},
+  veranda:{label:'Верандист',        usual:3500, prem:3500},
+  clean:  {label:'Уборщица',         usual:2000, prem:2000},
+};
+/* Доп-функции — можно отметить одну или обе на любом человеке.
+   Фикс действует только в режиме Пт/Сб ≥80к; в будни функции входят в кассовый бонус. */
+const FUNCS = {
+  ofik: {label:'Офик', prem:2500},
+  ugol: {label:'Угленос', prem:2500},
+};
+const STAFF_NAMES = ['Илья','Ростик','Никита','Лика','Александр'];
+
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id).value) || 0;
+const fmt = n => (Math.round(n*100)/100).toLocaleString('ru-RU') + ' ₽';
+
+/* ---------- кальяны ---------- */
+const hookahListEl = $('hookahList');
+POSITIONS.forEach((p,i)=>{
+  const div = document.createElement('div');
+  div.className='hk';
+  div.innerHTML = `
+    <span class="nm">${p.name}</span>
+    <span class="pr"><input type="number" inputmode="numeric" id="price_${p.id}" value="${p.price}" title="цена"></span>
+    <span class="stepper">
+      <button type="button" onclick="chQty('${p.id}',-1)">−</button>
+      <span class="qty" id="qty_${p.id}">0</span>
+      <button type="button" onclick="chQty('${p.id}',1)">+</button>
+    </span>`;
+  hookahListEl.appendChild(div);
+});
+const qtys = {}; POSITIONS.forEach(p=>qtys[p.id]=0);
+function chQty(id,d){
+  qtys[id]=Math.max(0,qtys[id]+d);
+  const el=$('qty_'+id);
+  el.textContent=qtys[id];
+  el.classList.toggle('nonzero',qtys[id]>0);
+  recalc();
+}
+
+/* ---------- сотрудники ---------- */
+let staffN=0;
+function addStaff(name='',role='master'){
+  staffN++;
+  const div=document.createElement('div');
+  div.className='drow'; div.id='st_'+staffN;
+  div.innerHTML=`
+    <button class="del" onclick="this.parentNode.remove();recalc()">✕</button>
+    <div class="row">
+      <div><label>Имя</label><input type="text" list="staffNames" class="st-name" value="${name}" oninput="recalc()"></div>
+      <div><label>Роль</label><select class="st-role" onchange="recalc()">
+        ${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${k===role?'selected':''}>${v.label}</option>`).join('')}
+      </select></div>
+    </div>
+    <div class="row">
+      <div><label>Доп-функции</label>
+        <div style="display:flex; gap:14px; padding:10px 2px;">
+          ${Object.entries(FUNCS).map(([k,v])=>
+            `<label style="display:flex; align-items:center; gap:6px; margin:0; font-size:15px; color:var(--text);">
+              <input type="checkbox" class="st-func" value="${k}" style="width:20px;height:20px;" onchange="recalc()">${v.label}
+            </label>`).join('')}
+        </div>
+      </div>
+      <div><label>Такси (после 01:00)</label>
+        <select class="st-taxi" onchange="recalc()">
+          <option value="0">Нет</option><option value="1">Да, +500 ₽</option>
+        </select></div>
+    </div>
+    <div class="pct-info st-pay" style="color:var(--text)"></div>
+    <div class="pct-info st-pct"></div>`;
+  $('staffList').appendChild(div);
+}
+const dl=document.createElement('datalist'); dl.id='staffNames';
+dl.innerHTML=STAFF_NAMES.map(n=>`<option>${n}</option>`).join('');
+document.body.appendChild(dl);
+
+/* ---------- издержки ---------- */
+let supN=0;
+function addSupply(){
+  supN++;
+  const div=document.createElement('div');
+  div.className='drow'; div.id='sp_'+supN;
+  div.innerHTML=`
+    <button class="del" onclick="this.parentNode.remove();recalc()">✕</button>
+    <div class="row">
+      <div style="flex:2"><label>Наименование</label><input type="text" class="sp-name" placeholder="фрукты, табак…" oninput="recalc()"></div>
+      <div><label>Сумма, ₽</label><input type="number" inputmode="numeric" class="sp-sum" placeholder="0" oninput="recalc()"></div>
+    </div>
+    <div class="row">
+      <div><label>Оплата</label><select class="sp-type" onchange="recalc()">
+        <option value="нал">Нал (из кассы)</option><option value="безнал">Безнал</option>
+      </select></div>
+    </div>`;
+  $('supplyList').appendChild(div);
+}
+
+/* ---------- расчёт ---------- */
+function getState(){
+  const s={
+    date:$('fDate').value, admin:$('fAdmin').value.trim(),
+    razmen:num('fRazmen'), cash:num('fCash'), card:num('fCard'),
+    transfer:num('fTransfer'), bonus:num('fBonus'), checks:num('fChecks'),
+    kolbasaEda:num('fKolbasaEda'), kolbasaKal:num('fKolbasaKal'), tips:num('fTips'),
+    comment:$('fComment').value.trim(),
+    hookahs:[], staff:[], supplies:[],
+  };
+  POSITIONS.forEach(p=>{
+    s.hookahs.push({name:p.name, qty:qtys[p.id], price:num('price_'+p.id), addon:!!p.addon});
+  });
+  document.querySelectorAll('#staffList .drow').forEach(d=>{
+    s.staff.push({
+      name:d.querySelector('.st-name').value.trim(),
+      role:d.querySelector('.st-role').value,
+      funcs:[...d.querySelectorAll('.st-func:checked')].map(x=>x.value),
+      taxi:d.querySelector('.st-taxi').value==='1',
+      el:d,
+    });
+  });
+  document.querySelectorAll('#supplyList .drow').forEach(d=>{
+    s.supplies.push({
+      name:d.querySelector('.sp-name').value.trim(),
+      sum:parseFloat(d.querySelector('.sp-sum').value)||0,
+      type:d.querySelector('.sp-type').value,
+    });
+  });
+  return s;
+}
+
+function compute(s){
+  const c={};
+  c.itogo = s.cash + s.card + s.transfer;                  // выручка (бонусы не входят)
+  c.kz = s.hookahs.reduce((a,h)=>a+h.qty*h.price,0);       // сумма кальянной зоны
+  c.hkCount = s.hookahs.filter(h=>!h.addon).reduce((a,h)=>a+h.qty,0);
+  c.kolbasa = s.kolbasaEda + s.kolbasaKal;
+  c.kolbasa20 = c.kolbasa*0.2;
+  c.bar = Math.max(0, c.itogo - c.kz - c.kolbasa);         // бар = итого − КЗ − колбаса
+  const base = c.kz + c.bar;
+  c.propKZ = base>0 ? Math.round(c.kz/base*100) : 0;
+  c.propBar = base>0 ? 100-c.propKZ : 0;
+  c.avg = s.checks>0 ? (c.itogo - c.kz - c.kolbasa)/s.checks : 0;
+
+  /* режим дня: Пт/Сб при кассе от 80к — премиум ставки, без кассового бонуса */
+  const day = s.date ? new Date(s.date+'T12:00').getDay() : -1;
+  c.isFriSat = (day===5 || day===6);
+  c.isPrem = c.isFriSat && c.itogo>=PREM_FROM;
+  c.cashBonus = (!c.isPrem && c.itogo>=BONUS_FROM)
+    ? BONUS_BASE + Math.floor((c.itogo-BONUS_FROM)/BONUS_STEP_SIZE)*BONUS_STEP : 0;
+
+  /* 5% колбасы: в будни забирает админ, в премиум Пт/Сб — тот, на ком функция офика.
+     Если в премиум офик не отмечен — процент уходит админу (форма предупредит). */
+  c.kolbasa5 = Math.round(s.kolbasaEda*0.05);
+  let k5idx = -1;
+  if(c.isPrem){
+    k5idx = s.staff.findIndex(e=>e.funcs.includes('ofik'));
+    c.k5noOfik = (k5idx<0);
+    if(k5idx<0) k5idx = s.staff.findIndex(e=>e.role==='admin');
+  } else {
+    c.k5noOfik = false;
+    k5idx = s.staff.findIndex(e=>e.role==='admin');
+  }
+
+  c.pay = s.staff.map((e,i)=>{
+    const r = ROLES[e.role];
+    const base = c.isPrem ? r.prem : r.usual;
+    const funcFix = c.isPrem ? e.funcs.reduce((a,f)=>a+FUNCS[f].prem,0) : 0;
+    const bonus = r.cashBonus ? c.cashBonus : 0;
+    const taxi = e.taxi ? TAXI : 0;
+    const pctParts = [];
+    if(e.role==='master' && c.kz>0) pctParts.push({label:'12% КЗ', val:Math.round(c.kz*0.12)});
+    if(e.role==='admin' && c.bar>0) pctParts.push({label:'9% бара', val:Math.round(c.bar*0.09)});
+    if(i===k5idx && c.kolbasa5>0) pctParts.push({label:'5% колбасы', val:c.kolbasa5});
+    const pct = pctParts.reduce((a,p)=>a+p.val,0);
+    return {base, funcFix, bonus, taxi, total: base+funcFix+bonus+taxi, pct, pctParts};
+  });
+  c.salaryToday = c.pay.reduce((a,p)=>a+p.total,0);
+  c.pctTotal = c.pay.reduce((a,p)=>a+p.pct,0);
+  c.supNal = s.supplies.filter(x=>x.type==='нал').reduce((a,x)=>a+x.sum,0);
+  c.supBeznal = s.supplies.filter(x=>x.type==='безнал').reduce((a,x)=>a+x.sum,0);
+  c.supTotal = c.supNal + c.supBeznal;
+  c.final = c.itogo - c.salaryToday - c.supTotal;          // итог за вычетом ЗП и издержек
+  c.cashEnd = s.razmen + s.cash - c.salaryToday - c.supNal; // нал в кассе на конец
+  return c;
+}
+
+function recalc(){
+  const s=getState(), c=compute(s);
+  $('cItogo').textContent=fmt(c.itogo);
+  $('cAvg').textContent = s.checks>0 ? fmt(c.avg) : '—';
+  $('cHkCount').textContent=c.hkCount;
+  $('cKZ').textContent=fmt(c.kz);
+  $('cProp').textContent = c.propKZ+'% / '+c.propBar+'%';
+  $('cKolbasa20').textContent=fmt(c.kolbasa20);
+  $('cMode').textContent = c.isPrem ? 'Пт/Сб, касса ≥80к — премиум ставки'
+    : (c.isFriSat ? 'Пт/Сб, касса <80к — как будни' : 'Будни / воскресенье');
+  $('cBonus').textContent = c.isPrem ? '— (не действует)' : fmt(c.cashBonus)+' каждому';
+  $('cSalary').textContent=fmt(c.salaryToday);
+  $('cPct').textContent=fmt(c.pctTotal);
+  $('cSupplies').textContent=fmt(c.supTotal);
+  $('rItogo').textContent=fmt(c.itogo);
+  $('rSalary').textContent=fmt(c.salaryToday);
+  $('rSupplies').textContent=fmt(c.supTotal);
+  $('rFinal').textContent=fmt(c.final);
+  $('rCashEnd').textContent=fmt(c.cashEnd);
+  $('fSumItogo').textContent=fmt(c.itogo);
+  $('fSumKZ').textContent=fmt(c.kz);
+  s.staff.forEach((e,i)=>{
+    const p=c.pay[i];
+    const parts=[`ставка ${fmt(p.base)}`];
+    if(p.funcFix) parts.push(`функции ${fmt(p.funcFix)}`);
+    if(p.bonus) parts.push(`касс. бонус ${fmt(p.bonus)}`);
+    if(p.taxi) parts.push(`такси ${fmt(p.taxi)}`);
+    e.el.querySelector('.st-pay').textContent = `Выдать: ${parts.join(' + ')} = ${fmt(p.total)}`;
+    e.el.querySelector('.st-pct').textContent = p.pct>0
+      ? `проценты за день (к получке): ${p.pctParts.map(x=>`${x.label} ${fmt(x.val)}`).join(' + ')} = ${fmt(p.pct)}` : '';
+  });
+  const w=[];
+  if(c.kz>c.itogo && c.itogo>0) w.push('Сумма КЗ больше выручки — проверь цифры.');
+  if(c.cashEnd<0) w.push('Наличных в кассе не хватает — проверь нал/издержки.');
+  if(c.isPrem && c.k5noOfik && c.kolbasa5>0)
+    w.push('Пт/Сб ≥80к: функция офика ни на ком не отмечена — 5% колбасы ушли админу.');
+  const wb=$('warnBox');
+  wb.textContent=w.join(' ');
+  wb.style.display=w.length?'block':'none';
+}
+document.addEventListener('input',recalc);
+
+/* ---------- отчёт ---------- */
+function buildReport(){
+  const s=getState(), c=compute(s);
+  const d = s.date ? s.date.split('-').reverse().join('.') : '—';
+  const L=[];
+  L.push(`📋 МАНСАРДА · ОТЧЁТ СМЕНЫ · ${d}`);
+  L.push(`Админ: ${s.admin||'—'}`);
+  L.push('━━━━━━━━━━━━━━');
+  L.push(`💰 ВЫРУЧКА: ${fmt(c.itogo)}`);
+  L.push(`Нал ${fmt(s.cash)} · Карта ${fmt(s.card)} · Перевод ${fmt(s.transfer)}`);
+  L.push(`Бонусы: ${fmt(s.bonus)} · Чеков: ${s.checks} · Ср. чек: ${s.checks>0?fmt(c.avg):'—'}`);
+  L.push(`Чаевые: ${fmt(s.tips)}${c.itogo>0?` (${(s.tips/c.itogo*100).toFixed(1)}% от выручки)`:''}`);
+  L.push(`Размен на начало: ${fmt(s.razmen)}`);
+  L.push('');
+  const hk = s.hookahs.filter(h=>h.qty>0);
+  L.push(`💨 КАЛЬЯНЫ: ${c.hkCount} шт · КЗ ${fmt(c.kz)}`);
+  hk.forEach(h=>L.push(`  ${h.name}: ${h.qty} × ${h.price} = ${fmt(h.qty*h.price)}`));
+  if(!hk.length) L.push('  —');
+  L.push(`Пропорция КЗ/Бар: ${c.propKZ}% / ${c.propBar}%`);
+  L.push('');
+  L.push(`🥩 Колбаса: еда ${fmt(s.kolbasaEda)} · кальян ${fmt(s.kolbasaKal)} · 20% = ${fmt(c.kolbasa20)}`);
+  L.push('');
+  const mode = c.isPrem ? 'Пт/Сб ≥80к (премиум)' : (c.isFriSat ? 'Пт/Сб <80к (как будни)' : 'будни/Вс');
+  L.push(`👥 ЗП ВЫДАНО: ${fmt(c.salaryToday)} · режим: ${mode}`);
+  if(!c.isPrem && c.cashBonus>0) L.push(`Кассовый бонус: +${fmt(c.cashBonus)} админу и мастеру`);
+  s.staff.forEach((e,i)=>{
+    const p=c.pay[i];
+    let roleTxt=ROLES[e.role].label;
+    if(e.funcs.length) roleTxt+=' + '+e.funcs.map(f=>FUNCS[f].label.toLowerCase()).join(' + ');
+    const parts=[fmt(p.base)];
+    if(p.funcFix) parts.push('функции '+fmt(p.funcFix));
+    if(p.bonus) parts.push('бонус '+fmt(p.bonus));
+    if(p.taxi) parts.push('такси '+fmt(p.taxi));
+    L.push(`  ${e.name||'—'} (${roleTxt}): ${parts.join(' + ')} = ${fmt(p.total)}`);
+    if(p.pct>0) L.push(`    % за день (к получке): ${p.pctParts.map(x=>`${x.label} ${fmt(x.val)}`).join(' + ')} = ${fmt(p.pct)}`);
+  });
+  if(!s.staff.length) L.push('  —');
+  L.push('');
+  L.push(`📦 ИЗДЕРЖКИ: ${fmt(c.supTotal)}`);
+  s.supplies.forEach(x=>L.push(`  ${x.name||'—'}: ${fmt(x.sum)} (${x.type})`));
+  if(!s.supplies.length) L.push('  —');
+  L.push('━━━━━━━━━━━━━━');
+  L.push(`✅ ИТОГ за вычетом ЗП и издержек: ${fmt(c.final)}`);
+  L.push(`💵 Нал в кассе на конец: ${fmt(c.cashEnd)}`);
+  if(s.comment) L.push(`📝 ${s.comment}`);
+  L.push('');
+  /* машиночитаемая строка для переноса в Excel — не удалять */
+  const data=['#DATA','v4',s.date,s.admin,s.razmen,s.cash,s.card,s.transfer,s.bonus,s.checks,
+    ...s.hookahs.map(h=>h.qty+'x'+h.price),
+    s.kolbasaEda,s.kolbasaKal,s.tips,
+    s.staff.map((e,i)=>[e.name,e.role,e.funcs.join('+'),e.taxi?1:0,c.pay[i].total,c.pay[i].pct].join('~')).join(';'),
+    s.supplies.map(x=>[x.name,x.sum,x.type].join('~')).join(';'),
+    Math.round(c.itogo),Math.round(c.kz),Math.round(c.final)
+  ].join('|');
+  L.push(data);
+  return L.join('\n');
+}
+
+function showReport(){
+  const s=getState();
+  const missing=[];
+  if(!s.date) missing.push('дата');
+  if(!s.admin) missing.push('имя админа');
+  if(missing.length){ alert('Заполни: '+missing.join(', ')); return; }
+  const text=buildReport();
+  $('reportText').value=text;
+  $('resultOverlay').style.display='block';
+}
+
+/* Отправка: на телефоне открывает системное меню «Поделиться» (выбираешь Telegram
+   и чат) — надёжнее, чем ссылки t.me. На компе — копирует текст и открывает Telegram Web. */
+function shareTg(){
+  const text=$('reportText').value;
+  if(navigator.share){
+    navigator.share({text:text}).catch(()=>{});
+  }else{
+    copyReport();
+    window.open('https://web.telegram.org/','_blank');
+    setTimeout(()=>alert('Текст скопирован — вставь его в нужный чат Telegram.'),300);
+  }
+}
+
+function copyReport(){
+  const ta=$('reportText');
+  ta.select(); ta.setSelectionRange(0,999999);
+  navigator.clipboard.writeText(ta.value).then(
+    ()=>{$('copyBtn').textContent='✅ Скопировано'; setTimeout(()=>$('copyBtn').textContent='📋 Скопировать',2000);},
+    ()=>{document.execCommand('copy'); $('copyBtn').textContent='✅ Скопировано';}
+  );
+}
+
+/* init */
+$('fDate').value=new Date().toISOString().slice(0,10);
+addStaff('', 'admin');
+addStaff('', 'master');
+recalc();
+</script>
+</body>
+</html>
