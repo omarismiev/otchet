@@ -124,7 +124,7 @@
     <div><label>Общее кол-во чеков</label><input type="number" inputmode="numeric" id="fChecks" placeholder="0"></div>
   </div>
   <div class="calc total"><span>ИТОГО выручка</span><span id="cItogo">0 ₽</span></div>
-  <div class="calc"><span>Средний чек (без КЗ и колбасы)</span><span id="cAvg">—</span></div>
+  <div class="calc"><span>Средний чек (без КЗ)</span><span id="cAvg">—</span></div>
 </div>
 
 <!-- ======== КАЛЬЯНЫ ======== -->
@@ -136,14 +136,16 @@
   <div class="calc"><span>Пропорция КЗ / Бар</span><span id="cProp">— / —</span></div>
 </div>
 
-<!-- ======== КОЛБАСА ======== -->
+<!-- ======== КОЛБАСА ========
+     Гости платят Колбасе напрямую (перевод им) — этих денег в нашей кассе НЕТ.
+     В конце смены Колбаса приносит наши 20% от продаж еды наличными. -->
 <div class="card">
   <h2>Колбаса</h2>
   <div class="row">
-    <div><label>Колбаса — еда, ₽</label><input type="number" inputmode="numeric" id="fKolbasaEda" placeholder="0"></div>
-    <div><label>Колбаса — кальян, ₽</label><input type="number" inputmode="numeric" id="fKolbasaKal" placeholder="0"></div>
+    <div><label>Продажи Колбасы (еда), ₽</label><input type="number" inputmode="numeric" id="fKolbasaEda" placeholder="0"></div>
+    <div><label>Кальяны их гостям, ₽ (инфо)</label><input type="number" inputmode="numeric" id="fKolbasaKal" placeholder="0"></div>
   </div>
-  <div class="calc"><span>Колбаса 20%</span><span id="cKolbasa20">0 ₽</span></div>
+  <div class="calc"><span>Наш приход от Колбасы (20%, налом)</span><span id="cKolbasa20">0 ₽</span></div>
 </div>
 
 <!-- ======== СОТРУДНИКИ ======== -->
@@ -174,7 +176,8 @@
 <!-- ======== ИТОГИ ======== -->
 <div class="card">
   <h2>Итоги смены</h2>
-  <div class="calc"><span>Выручка</span><span id="rItogo">0 ₽</span></div>
+  <div class="calc"><span>Выручка (наша касса)</span><span id="rItogo">0 ₽</span></div>
+  <div class="calc"><span>+ Приход от Колбасы (20%)</span><span id="rKolbasa">0 ₽</span></div>
   <div class="calc"><span>− ЗП выдано</span><span id="rSalary">0 ₽</span></div>
   <div class="calc"><span>− Издержки</span><span id="rSupplies">0 ₽</span></div>
   <div class="calc total"><span>ИТОГ за вычетом ЗП и издержек</span><span id="rFinal">0 ₽</span></div>
@@ -207,17 +210,19 @@ document.getElementById('jsWarn').style.display='none';
 /* ================= ПОЗИЦИИ КАЛЬЯНОВ =================
    Цены по умолчанию — из таблицы 2026. Их можно менять прямо в форме.
    addon:true — не считается в кол-ве кальянов (добавки). */
+/* Цены — меню 07.2026 */
 const POSITIONS = [
-  {id:'klassika',   name:'Классическая чаша', price:2200},
-  {id:'premium',    name:'Премиум чаша',      price:2500},
-  {id:'greypfrut',  name:'Фрукт · Грейпфрут', price:2800},
-  {id:'granat',     name:'Фрукт · Гранат',    price:3000},
-  {id:'ananas',     name:'Фрукт · Ананас',    price:3200},
-  {id:'avtorskiy',  name:'Авторский кальян',  price:2800},
-  {id:'konstruktor',name:'Конструктор',       price:3600},
-  {id:'kokteyl',    name:'Коктейль',          price:4200},
+  {id:'klassika',   name:'Классическая чаша', price:2450},
+  {id:'premium',    name:'Премиум чаша',      price:2750},
+  {id:'parfum',     name:'Парфюмный',         price:3400},
+  {id:'greypfrut',  name:'Фрукт · Грейпфрут', price:2990},
+  {id:'granat',     name:'Фрукт · Гранат',    price:3200},
+  {id:'ananas',     name:'Фрукт · Ананас',    price:3400},
+  {id:'konstruktor',name:'Конструктор',       price:3800},
+  {id:'kokteyl',    name:'Коктейль',          price:4400},
   {id:'kokteyl_vip',name:'Коктейль премиум',  price:5900},
-  {id:'drug',       name:'Друг (для друзей Омара)', price:1650},
+  {id:'drug',       name:'Друг (для друзей Омара)', price:1750},
+  {id:'skidka',     name:'Кальян со скидкой',       price:2200},
   {id:'perekur',    name:'Перекур (чай+кальян)',    price:1990},
   {id:'dobavka',    name:'Добавка',                 price:350,  addon:true},
   {id:'staff',      name:'Стафф',                   price:1000, addon:true},
@@ -226,9 +231,11 @@ const POSITIONS = [
 /* ===== УСЛОВИЯ ТРУДА (финал 02.07.2026, «Команда и ФОТ») =====
    Ставки фиксированные — подтягиваются по роли и режиму дня, вручную не вводятся.
    Режим «Пт/Сб премиум» = пятница или суббота И общая касса от 80 000 ₽.
-   Кассовый бонус (будни/Вс и Пт/Сб ниже 80к): касса от 70 000 → +1500 админу и
-   мастеру, далее за каждые полные +10 000 → ещё +500 каждому. */
-const PREM_FROM = 80000, BONUS_FROM = 70000, BONUS_BASE = 1500, BONUS_STEP = 500, BONUS_STEP_SIZE = 10000, TAXI = 500;
+   Кассовый бонус (будни/Вс и Пт/Сб ниже 80к): касса от 65 000 → +1500 админу и
+   мастеру; плюс +500 каждому за каждый пройденный рубеж 75к, 85к, 95к…
+   (порог 65к — июль 2026, по док. «Команда_и_ФОТ»; далее порог пересматривается по итогам месяца).
+   Доплата за открытие смены с 12:00 — +500 тому, кто открывал. */
+const PREM_FROM = 80000, BONUS_FROM = 65000, BONUS_BASE = 1500, BONUS_STEP = 500, BONUS_STEP_SIZE = 10000, BONUS_GRID = 65000, TAXI = 500, OPEN12 = 500, PODEM = 1000;
 
 /* Базовые роли. Админ всегда выполняет функцию бармена → 9% бара его по определению.
    Появится отдельный бармен — добавим роль. */
@@ -302,6 +309,16 @@ function addStaff(name='',role='master'){
           <option value="0">Нет</option><option value="1">Да, +500 ₽</option>
         </select></div>
     </div>
+    <div class="row">
+      <div><label>Открытие смены с 12:00</label>
+        <select class="st-open12" onchange="recalc()">
+          <option value="0">Нет</option><option value="1">Да, +500 ₽</option>
+        </select></div>
+      <div><label>Подъём</label>
+        <select class="st-podem" onchange="recalc()">
+          <option value="0">Нет</option><option value="1">Да, +1000 ₽</option>
+        </select></div>
+    </div>
     <div class="pct-info st-pay" style="color:var(--text)"></div>
     <div class="pct-info st-pct"></div>`;
   $('staffList').appendChild(div);
@@ -309,6 +326,12 @@ function addStaff(name='',role='master'){
 const dl=document.createElement('datalist'); dl.id='staffNames';
 dl.innerHTML=STAFF_NAMES.map(n=>`<option>${n}</option>`).join('');
 document.body.appendChild(dl);
+
+/* справочник издержек — выбор из списка или свободный ввод */
+const SUPPLY_NAMES=['Лудинг','АСТ','Пиво','Сидр','Хозы','Фрукты','Напитки','Табак','Уголь'];
+const dls=document.createElement('datalist'); dls.id='supplyNames';
+dls.innerHTML=SUPPLY_NAMES.map(n=>`<option>${n}</option>`).join('');
+document.body.appendChild(dls);
 
 /* ---------- издержки ---------- */
 let supN=0;
@@ -319,7 +342,7 @@ function addSupply(){
   div.innerHTML=`
     <button class="del" onclick="this.parentNode.remove();recalc()">✕</button>
     <div class="row">
-      <div style="flex:2"><label>Наименование</label><input type="text" class="sp-name" placeholder="фрукты, табак…" oninput="recalc()"></div>
+      <div style="flex:2"><label>Наименование (выбери или впиши)</label><input type="text" class="sp-name" list="supplyNames" placeholder="фрукты, табак…" oninput="recalc()"></div>
       <div><label>Сумма, ₽</label><input type="number" inputmode="numeric" class="sp-sum" placeholder="0" oninput="recalc()"></div>
     </div>
     <div class="row">
@@ -349,6 +372,8 @@ function getState(){
       role:d.querySelector('.st-role').value,
       funcs:[...d.querySelectorAll('.st-func:checked')].map(x=>x.value),
       taxi:d.querySelector('.st-taxi').value==='1',
+      open12:d.querySelector('.st-open12').value==='1',
+      podem:d.querySelector('.st-podem').value==='1',
       el:d,
     });
   });
@@ -364,23 +389,22 @@ function getState(){
 
 function compute(s){
   const c={};
-  c.itogo = s.cash + s.card + s.transfer;                  // выручка (бонусы не входят)
+  c.itogo = s.cash + s.card + s.transfer;                  // наша касса (колбасы здесь нет)
   c.kz = s.hookahs.reduce((a,h)=>a+h.qty*h.price,0);       // сумма кальянной зоны
   c.hkCount = s.hookahs.filter(h=>!h.addon).reduce((a,h)=>a+h.qty,0);
-  c.kolbasa = s.kolbasaEda + s.kolbasaKal;
-  c.kolbasa20 = c.kolbasa*0.2;
-  c.bar = Math.max(0, c.itogo - c.kz - c.kolbasa);         // бар = итого − КЗ − колбаса
+  c.kolbasa20 = Math.round(s.kolbasaEda*0.2);              // наши 20%, приносят налом в конце смены
+  c.bar = Math.max(0, c.itogo - c.kz);                     // бар = итого − КЗ
   const base = c.kz + c.bar;
   c.propKZ = base>0 ? Math.round(c.kz/base*100) : 0;
   c.propBar = base>0 ? 100-c.propKZ : 0;
-  c.avg = s.checks>0 ? (c.itogo - c.kz - c.kolbasa)/s.checks : 0;
+  c.avg = s.checks>0 ? (c.itogo - c.kz)/s.checks : 0;
 
   /* режим дня: Пт/Сб при кассе от 80к — премиум ставки, без кассового бонуса */
   const day = s.date ? new Date(s.date+'T12:00').getDay() : -1;
   c.isFriSat = (day===5 || day===6);
   c.isPrem = c.isFriSat && c.itogo>=PREM_FROM;
   c.cashBonus = (!c.isPrem && c.itogo>=BONUS_FROM)
-    ? BONUS_BASE + Math.floor((c.itogo-BONUS_FROM)/BONUS_STEP_SIZE)*BONUS_STEP : 0;
+    ? BONUS_BASE + Math.floor((c.itogo-BONUS_GRID)/BONUS_STEP_SIZE)*BONUS_STEP : 0;
 
   /* 5% колбасы: в будни забирает админ, в премиум Пт/Сб — тот, на ком функция офика.
      Если в премиум офик не отмечен — процент уходит админу (форма предупредит). */
@@ -401,20 +425,22 @@ function compute(s){
     const funcFix = c.isPrem ? e.funcs.reduce((a,f)=>a+FUNCS[f].prem,0) : 0;
     const bonus = r.cashBonus ? c.cashBonus : 0;
     const taxi = e.taxi ? TAXI : 0;
+    const open12 = e.open12 ? OPEN12 : 0;
+    const podem = e.podem ? PODEM : 0;
     const pctParts = [];
     if(e.role==='master' && c.kz>0) pctParts.push({label:'12% КЗ', val:Math.round(c.kz*0.12)});
     if(e.role==='admin' && c.bar>0) pctParts.push({label:'9% бара', val:Math.round(c.bar*0.09)});
     if(i===k5idx && c.kolbasa5>0) pctParts.push({label:'5% колбасы', val:c.kolbasa5});
     const pct = pctParts.reduce((a,p)=>a+p.val,0);
-    return {base, funcFix, bonus, taxi, total: base+funcFix+bonus+taxi, pct, pctParts};
+    return {base, funcFix, bonus, taxi, open12, podem, total: base+funcFix+bonus+taxi+open12+podem, pct, pctParts};
   });
   c.salaryToday = c.pay.reduce((a,p)=>a+p.total,0);
   c.pctTotal = c.pay.reduce((a,p)=>a+p.pct,0);
   c.supNal = s.supplies.filter(x=>x.type==='нал').reduce((a,x)=>a+x.sum,0);
   c.supBeznal = s.supplies.filter(x=>x.type==='безнал').reduce((a,x)=>a+x.sum,0);
   c.supTotal = c.supNal + c.supBeznal;
-  c.final = c.itogo - c.salaryToday - c.supTotal;          // итог за вычетом ЗП и издержек
-  c.cashEnd = s.razmen + s.cash - c.salaryToday - c.supNal; // нал в кассе на конец
+  c.final = c.itogo + c.kolbasa20 - c.salaryToday - c.supTotal; // итог смены (с приходом Колбасы)
+  c.cashEnd = s.razmen + s.cash + c.kolbasa20 - c.salaryToday - c.supNal; // нал в кассе на конец
   return c;
 }
 
@@ -433,6 +459,7 @@ function recalc(){
   $('cPct').textContent=fmt(c.pctTotal);
   $('cSupplies').textContent=fmt(c.supTotal);
   $('rItogo').textContent=fmt(c.itogo);
+  $('rKolbasa').textContent=fmt(c.kolbasa20);
   $('rSalary').textContent=fmt(c.salaryToday);
   $('rSupplies').textContent=fmt(c.supTotal);
   $('rFinal').textContent=fmt(c.final);
@@ -445,6 +472,8 @@ function recalc(){
     if(p.funcFix) parts.push(`функции ${fmt(p.funcFix)}`);
     if(p.bonus) parts.push(`касс. бонус ${fmt(p.bonus)}`);
     if(p.taxi) parts.push(`такси ${fmt(p.taxi)}`);
+    if(p.open12) parts.push(`открытие ${fmt(p.open12)}`);
+    if(p.podem) parts.push(`подъём ${fmt(p.podem)}`);
     e.el.querySelector('.st-pay').textContent = `Выдать: ${parts.join(' + ')} = ${fmt(p.total)}`;
     e.el.querySelector('.st-pct').textContent = p.pct>0
       ? `проценты за день (к получке): ${p.pctParts.map(x=>`${x.label} ${fmt(x.val)}`).join(' + ')} = ${fmt(p.pct)}` : '';
@@ -480,7 +509,8 @@ function buildReport(){
   if(!hk.length) L.push('  —');
   L.push(`Пропорция КЗ/Бар: ${c.propKZ}% / ${c.propBar}%`);
   L.push('');
-  L.push(`🥩 Колбаса: еда ${fmt(s.kolbasaEda)} · кальян ${fmt(s.kolbasaKal)} · 20% = ${fmt(c.kolbasa20)}`);
+  L.push(`🥩 Колбаса: продажи ${fmt(s.kolbasaEda)} · наши 20% (налом) = ${fmt(c.kolbasa20)}`);
+  if(s.kolbasaKal>0) L.push(`   Кальяны их гостям: ${fmt(s.kolbasaKal)} (в нашей кассе)`);
   L.push('');
   const mode = c.isPrem ? 'Пт/Сб ≥80к (премиум)' : (c.isFriSat ? 'Пт/Сб <80к (как будни)' : 'будни/Вс');
   L.push(`👥 ЗП ВЫДАНО: ${fmt(c.salaryToday)} · режим: ${mode}`);
@@ -493,6 +523,8 @@ function buildReport(){
     if(p.funcFix) parts.push('функции '+fmt(p.funcFix));
     if(p.bonus) parts.push('бонус '+fmt(p.bonus));
     if(p.taxi) parts.push('такси '+fmt(p.taxi));
+    if(p.open12) parts.push('открытие '+fmt(p.open12));
+    if(p.podem) parts.push('подъём '+fmt(p.podem));
     L.push(`  ${e.name||'—'} (${roleTxt}): ${parts.join(' + ')} = ${fmt(p.total)}`);
     if(p.pct>0) L.push(`    % за день (к получке): ${p.pctParts.map(x=>`${x.label} ${fmt(x.val)}`).join(' + ')} = ${fmt(p.pct)}`);
   });
@@ -502,15 +534,15 @@ function buildReport(){
   s.supplies.forEach(x=>L.push(`  ${x.name||'—'}: ${fmt(x.sum)} (${x.type})`));
   if(!s.supplies.length) L.push('  —');
   L.push('━━━━━━━━━━━━━━');
-  L.push(`✅ ИТОГ за вычетом ЗП и издержек: ${fmt(c.final)}`);
+  L.push(`✅ ИТОГ смены (касса + 20% Колбасы − ЗП − издержки): ${fmt(c.final)}`);
   L.push(`💵 Нал в кассе на конец: ${fmt(c.cashEnd)}`);
   if(s.comment) L.push(`📝 ${s.comment}`);
   L.push('');
   /* машиночитаемая строка для переноса в Excel — не удалять */
-  const data=['#DATA','v4',s.date,s.admin,s.razmen,s.cash,s.card,s.transfer,s.bonus,s.checks,
+  const data=['#DATA','v5',s.date,s.admin,s.razmen,s.cash,s.card,s.transfer,s.bonus,s.checks,
     ...s.hookahs.map(h=>h.qty+'x'+h.price),
     s.kolbasaEda,s.kolbasaKal,s.tips,
-    s.staff.map((e,i)=>[e.name,e.role,e.funcs.join('+'),e.taxi?1:0,c.pay[i].total,c.pay[i].pct].join('~')).join(';'),
+    s.staff.map((e,i)=>[e.name,e.role,e.funcs.join('+'),e.taxi?1:0,e.open12?1:0,e.podem?1:0,c.pay[i].total,c.pay[i].pct].join('~')).join(';'),
     s.supplies.map(x=>[x.name,x.sum,x.type].join('~')).join(';'),
     Math.round(c.itogo),Math.round(c.kz),Math.round(c.final)
   ].join('|');
